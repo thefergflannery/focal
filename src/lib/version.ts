@@ -12,7 +12,10 @@ export function getVersionInfo() {
     version: APP_VERSION,
     buildDate: BUILD_DATE,
     lastUpdated: LAST_UPDATED,
-    gitCommit: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) || "development",
+    gitCommit:
+      process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ||
+      process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ||
+      "development",
     environment: process.env.NODE_ENV || "development",
   };
 }
