@@ -55,7 +55,8 @@ async function getRegionBySlug(slug: string) {
 }
 
 export default async function RegionPage({ params }: RegionPageProps) {
-  const region = await getRegionBySlug(params.slug);
+  const { slug } = await params;
+  const region = await getRegionBySlug(slug);
 
   if (!region) {
     notFound();
@@ -182,7 +183,8 @@ export default async function RegionPage({ params }: RegionPageProps) {
 }
 
 export async function generateMetadata({ params }: RegionPageProps) {
-  const region = await getRegionBySlug(params.slug);
+  const { slug } = await params;
+  const region = await getRegionBySlug(slug);
 
   if (!region) {
     return {
