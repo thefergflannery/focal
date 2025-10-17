@@ -1,0 +1,370 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Auth.js models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  role          UserRole  @default(CONTRIBUTOR)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts Account[]
+  sessions Session[]
+  votes    Vote[]
+  submissions Submission[]
+  editReviews EditReview[]
+  entryVotes   EntryVote[] // NEW: Direct entry voting
+  reports      Report[] // NEW: Content reports submitted
+  suggestions  Suggestion[] // NEW: Wiki-style suggestions
+  reviewedReports Report[] @relation("ReportReviewer") // NEW: Reports reviewed by this user
+  reviewedSuggestions Suggestion[] @relation("SuggestionReviewer") // NEW: Suggestions reviewed by this user
+
+  @@map("users")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verificationtokens")
+}
+
+// Core domain models
+model Region {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  country     String?
+  county      String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  entries EntryRegion[]
+  
+  @@map("regions")
+}
+
+model Entry {
+  id          String   @id @default(cuid())
+  headword    String
+  normalized  String   // Text normalization for search
+  partOfSpeech String?
+  etymology   String?
+  notes       String?
+  audioUrl    String?
+  isActive    Boolean  @default(true)
+  popularity  Int      @default(0) // Denormalized for performance
+  usageStatus UsageStatus @default(CURRENT) // NEW: Current or archaic
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  variants     Variant[]
+  definitions  Definition[]
+  regions      EntryRegion[]
+  sources      Source[]
+  entryVotes   EntryVote[] // NEW: Direct voting on entries
+  reports      Report[] // NEW: Content reporting
+  suggestions  Suggestion[] // NEW: Wiki-style suggestions
+
+  @@unique([headword, partOfSpeech])
+  @@index([normalized])
+  @@index([popularity])
+  @@index([usageStatus])
+  @@map("entries")
+}
+
+model Variant {
+  id          String   @id @default(cuid())
+  entryId     String
+  variant     String
+  normalized  String   // Text normalization for search
+  pronunciation String?
+  notes       String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  entry Entry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  reports Report[] // NEW: Content reports
+
+  @@index([normalized])
+  @@map("variants")
+}
+
+model EntryRegion {
+  id        String   @id @default(cuid())
+  entryId   String
+  regionId  String
+  createdAt DateTime @default(now())
+
+  entry  Entry  @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  region Region @relation(fields: [regionId], references: [id], onDelete: Cascade)
+
+  @@unique([entryId, regionId])
+  @@map("entry_regions")
+}
+
+model Definition {
+  id          String   @id @default(cuid())
+  entryId     String
+  definition  String
+  example     String?
+  notes       String?
+  isActive    Boolean  @default(true)
+  popularity  Int      @default(0) // Denormalized for performance
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  entry Entry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  votes Vote[]
+  reports Report[] // NEW: Content reports
+
+  @@index([popularity])
+  @@map("definitions")
+}
+
+model Vote {
+  id           String   @id @default(cuid())
+  userId       String
+  definitionId String
+  isUpvote     Boolean
+  createdAt    DateTime @default(now())
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  definition Definition @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, definitionId])
+  @@map("votes")
+}
+
+model Submission {
+  id          String            @id @default(cuid())
+  userId      String
+  type        SubmissionType
+  status      SubmissionStatus  @default(PENDING)
+  data        Json              // Flexible data structure for different submission types
+  notes       String?
+  submittedAt DateTime          @default(now())
+  reviewedAt  DateTime?
+  reviewedBy  String?
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  editReviews EditReview[]
+
+  @@map("submissions")
+}
+
+model EditReview {
+  id           String   @id @default(cuid())
+  submissionId String
+  reviewerId   String
+  status       ReviewStatus
+  comments     String?
+  reviewedAt   DateTime @default(now())
+
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  reviewer   User       @relation(fields: [reviewerId], references: [id])
+
+  @@map("edit_reviews")
+}
+
+model Source {
+  id          String   @id @default(cuid())
+  entryId     String
+  title       String
+  author      String?
+  publisher   String?
+  year        Int?
+  url         String?
+  isbn        String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  entry Entry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@map("sources")
+}
+
+// NEW: Entry voting model
+model EntryVote {
+  id       String   @id @default(cuid())
+  userId   String
+  entryId  String
+  isUpvote Boolean
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entry Entry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, entryId])
+  @@map("entry_votes")
+}
+
+// NEW: Content reporting model
+model Report {
+  id          String   @id @default(cuid())
+  userId      String
+  entryId     String?
+  definitionId String?
+  variantId   String?
+  reason      ReportReason
+  description String?
+  status      ReportStatus @default(PENDING)
+  createdAt   DateTime @default(now())
+  reviewedAt  DateTime?
+  reviewedBy  String?
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entry       Entry?      @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  definition  Definition? @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  variant     Variant?    @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  reviewer    User?       @relation("ReportReviewer", fields: [reviewedBy], references: [id])
+
+  @@map("reports")
+}
+
+// NEW: Wiki-style suggestions model
+model Suggestion {
+  id          String   @id @default(cuid())
+  userId      String
+  entryId     String
+  type        SuggestionType
+  currentValue String?
+  suggestedValue String
+  reason      String?
+  status      SuggestionStatus @default(PENDING)
+  createdAt   DateTime @default(now())
+  reviewedAt  DateTime?
+  reviewedBy  String?
+
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entry      Entry            @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  reviewer   User?            @relation("SuggestionReviewer", fields: [reviewedBy], references: [id])
+
+  @@map("suggestions")
+}
+
+// Enums
+enum UserRole {
+  ADMIN
+  EDITOR
+  CONTRIBUTOR
+}
+
+enum SubmissionType {
+  NEW_ENTRY
+  NEW_DEFINITION
+  NEW_VARIANT
+  EDIT_ENTRY
+  EDIT_DEFINITION
+  EDIT_VARIANT
+  DELETE_ENTRY
+  DELETE_DEFINITION
+  DELETE_VARIANT
+}
+
+enum SubmissionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  NEEDS_REVISION
+}
+
+enum ReviewStatus {
+  APPROVED
+  REJECTED
+  NEEDS_REVISION
+}
+
+// NEW: Usage status enum
+enum UsageStatus {
+  CURRENT
+  ARCHAIC
+  REGIONAL
+  RARE
+}
+
+// NEW: Report reason enum
+enum ReportReason {
+  INAPPROPRIATE
+  INCORRECT
+  DUPLICATE
+  SPAM
+  COPYRIGHT
+  OTHER
+}
+
+// NEW: Report status enum
+enum ReportStatus {
+  PENDING
+  REVIEWED
+  RESOLVED
+  DISMISSED
+}
+
+// NEW: Suggestion type enum
+enum SuggestionType {
+  HEADWORD
+  DEFINITION
+  ETYMOLOGY
+  NOTES
+  PRONUNCIATION
+  USAGE_STATUS
+  REGION
+}
+
+// NEW: Suggestion status enum
+enum SuggestionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  IMPLEMENTED
+}
