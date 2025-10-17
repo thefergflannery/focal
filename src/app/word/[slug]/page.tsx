@@ -89,7 +89,8 @@ async function getSimilarEntries(entryId: string) {
 }
 
 export default async function WordPage({ params }: WordPageProps) {
-  const entry = await getEntryBySlug(params.slug);
+  const { slug } = await params;
+  const entry = await getEntryBySlug(slug);
 
   if (!entry) {
     notFound();
@@ -101,7 +102,8 @@ export default async function WordPage({ params }: WordPageProps) {
 }
 
 export async function generateMetadata({ params }: WordPageProps) {
-  const entry = await getEntryBySlug(params.slug);
+  const { slug } = await params;
+  const entry = await getEntryBySlug(slug);
 
   if (!entry) {
     return {
