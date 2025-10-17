@@ -127,6 +127,8 @@ export function Footer() {
               <div className="flex items-center space-x-1">
                 <GitCommit className="w-3 h-3" />
                 <span>v{getVersionInfo().version}</span>
+                <span className="mx-1">•</span>
+                <span>#{getVersionInfo().gitCommit}</span>
               </div>
               <div className="flex items-center space-x-1">
                 <Calendar className="w-3 h-3" />
