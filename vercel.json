@@ -2,10 +2,6 @@
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
   "framework": "nextjs",
-  "env": {
-    "NEXTAUTH_URL": "https://focloireacht.vercel.app",
-    "NEXTAUTH_SECRET": "your-secret-key-here-change-in-production"
-  },
   "headers": [
     {
       "source": "/(.*)",
